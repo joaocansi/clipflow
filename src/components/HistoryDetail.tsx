@@ -1,10 +1,11 @@
 import { Clip } from "../api";
-import { detectType, typeColor } from "../detect";
+import { detectType, typeBadge } from "../detect";
 import { Kbd } from "./Kbd";
 
 /** Right-hand detail pane for a history clip. */
 export function HistoryDetail({
   clip,
+  light,
   onPinToggle,
   onDelete,
   onSave,
@@ -12,6 +13,7 @@ export function HistoryDetail({
   toolsEnabled,
 }: {
   clip: Clip;
+  light: boolean;
   onPinToggle: () => void;
   onDelete: () => void;
   onSave: () => void;
@@ -22,7 +24,7 @@ export function HistoryDetail({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs text-[var(--cf-text-dim)]">
-        <span className={`rounded-md px-1.5 py-0.5 uppercase ${typeColor[ty]}`}>{ty}</span>
+        <span className={`rounded-md px-1.5 py-0.5 uppercase ${typeBadge(ty, light)}`}>{ty}</span>
         <button
           onClick={onPinToggle}
           className="flex items-center gap-1 hover:text-[var(--cf-text)]"

@@ -23,6 +23,7 @@ export function detectType(text: string): string {
   return "text";
 }
 
+/** Badge classes for dark themes (light text on a translucent hue). */
 export const typeColor: Record<string, string> = {
   jwt: "bg-purple-500/20 text-purple-300",
   url: "bg-blue-500/20 text-blue-300",
@@ -37,3 +38,24 @@ export const typeColor: Record<string, string> = {
   text: "bg-slate-500/20 text-slate-300",
   empty: "bg-slate-500/20 text-slate-300",
 };
+
+/** Badge classes for light themes (dark text for contrast on a pale panel). */
+export const typeColorLight: Record<string, string> = {
+  jwt: "bg-purple-500/15 text-purple-700",
+  url: "bg-blue-500/15 text-blue-700",
+  email: "bg-cyan-500/15 text-cyan-700",
+  json: "bg-amber-500/15 text-amber-700",
+  color: "bg-pink-500/15 text-pink-700",
+  timestamp: "bg-green-500/15 text-green-700",
+  hash: "bg-red-500/15 text-red-700",
+  base64: "bg-teal-500/15 text-teal-700",
+  path: "bg-indigo-500/15 text-indigo-700",
+  multiline: "bg-slate-500/15 text-slate-700",
+  text: "bg-slate-500/15 text-slate-700",
+  empty: "bg-slate-500/15 text-slate-700",
+};
+
+/** Pick the badge classes for a content type, given the active scheme. */
+export function typeBadge(ty: string, light: boolean): string {
+  return (light ? typeColorLight : typeColor)[ty] ?? typeColor.text;
+}

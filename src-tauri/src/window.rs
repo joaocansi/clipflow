@@ -95,17 +95,28 @@ fn force_present(w: &tauri::WebviewWindow) {
     });
 }
 
+/// Logical window size: the 920×560 panel plus an even 100px margin on every
+/// side for its drop shadow. Keeping the size (and the margin) even means the
+/// panel always lands on whole pixels.
+const WIN_W: f64 = 1120.0;
+const WIN_H: f64 = 760.0;
+
 fn show_and_focus(w: &tauri::WebviewWindow) {
     let _ = w.unminimize();
-    // Cover the whole monitor so the overlay can paint a full-screen scrim
-    // (dim) behind the centered panel. We size/position explicitly instead of
-    // using OS fullscreen, which would unredirect the window and break the
-    // transparency the scrim relies on.
+    // Size the window to the panel + shadow margin and center it on the active
+    // monitor at INTEGER physical coordinates. Covering the whole monitor and
+    // centering the fixed-size panel in CSS instead lands the panel on a
+    // half-pixel (odd viewport / fractional DPI scale), which smears all text.
+    let _ = w.set_size(tauri::LogicalSize::new(WIN_W, WIN_H));
     if let Ok(Some(monitor)) = w.current_monitor() {
+        let scale = monitor.scale_factor();
+        let win_w = (WIN_W * scale) as i32;
+        let win_h = (WIN_H * scale) as i32;
         let size = monitor.size();
         let pos = monitor.position();
-        let _ = w.set_size(tauri::PhysicalSize::new(size.width, size.height));
-        let _ = w.set_position(tauri::PhysicalPosition::new(pos.x, pos.y));
+        let x = pos.x + (size.width as i32 - win_w) / 2;
+        let y = pos.y + (size.height as i32 - win_h) / 2;
+        let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
     }
     let _ = w.show();
     let _ = w.set_focus();

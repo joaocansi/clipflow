@@ -55,10 +55,12 @@ body {
   will-change: opacity;
 }
 .cf-panel {
-  /* Quick rise + scale fade as the panel appears. */
-  animation: cf-panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Quick rise + scale fade as the panel appears. No `both` fill and no
+     will-change: once the animation ends the element drops its transform and
+     compositing layer, so text renders crisp (a held/animated transform layer
+     softens text antialiasing — most visible on the translucent sidebar). */
+  animation: cf-panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: center;
-  will-change: transform, opacity;
 }
 
 /* Large, soft, layered drop shadow — floats the panel above the desktop the

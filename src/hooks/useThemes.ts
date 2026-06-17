@@ -4,6 +4,7 @@ import {
   applyTheme,
   BUILTIN_THEMES,
   DEFAULT_THEME_ID,
+  isLightTheme,
   mergeThemes,
 } from "../themes";
 
@@ -36,5 +37,8 @@ export function useThemes() {
     api.setSetting("theme", id);
   }, []);
 
-  return { themes, themeId, setThemeId };
+  const active = themes.find((t) => t.id === themeId) ?? themes[0];
+  const isLight = active ? isLightTheme(active) : false;
+
+  return { themes, themeId, setThemeId, isLight };
 }

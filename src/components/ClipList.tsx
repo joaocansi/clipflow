@@ -1,6 +1,6 @@
 import { LuPin } from "react-icons/lu";
 import { Clip, SavedItem } from "../api";
-import { detectType, typeColor } from "../detect";
+import { detectType, typeBadge } from "../detect";
 import { timeAgo, splitTags } from "../lib/format";
 import type { Section, Zone } from "../types";
 
@@ -10,6 +10,7 @@ export function ClipList({
   section,
   sel,
   zone,
+  light,
   listRef,
   onSelect,
   onActivate,
@@ -18,6 +19,7 @@ export function ClipList({
   section: Section;
   sel: number;
   zone: Zone;
+  light: boolean;
   listRef: React.RefObject<HTMLDivElement | null>;
   onSelect: (i: number) => void;
   onActivate: (content: string) => void;
@@ -51,7 +53,7 @@ export function ClipList({
           >
             <div className="flex items-center gap-2">
               <span
-                className={`rounded-md px-1.5 py-0.5 text-[10px] uppercase ${typeColor[ty]}`}
+                className={`rounded-md px-1.5 py-0.5 text-[10px] uppercase ${typeBadge(ty, light)}`}
               >
                 {ty}
               </span>

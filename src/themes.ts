@@ -76,6 +76,32 @@ export function mergeThemes(builtins: Theme[], custom: Theme[]): Theme[] {
   );
 }
 
+/** Rough relative luminance of a CSS color (hex or rgb/rgba); 0=dark, 1=light. */
+function luminance(color: string): number {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  const hex = color.trim().match(/^#([0-9a-fA-F]{6})$/);
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    r = (n >> 16) & 255;
+    g = (n >> 8) & 255;
+    b = n & 255;
+  } else {
+    const m = color.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      const p = m[1].split(",").map((s) => parseFloat(s));
+      [r, g, b] = p;
+    }
+  }
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/** True if the theme's panel is light enough to need dark foreground accents. */
+export function isLightTheme(t: Theme): boolean {
+  return luminance(t.panel) > 0.6;
+}
+
 /** Apply a theme by writing its colors as `--cf-*` CSS variables on :root. */
 export function applyTheme(t: Theme) {
   const r = document.documentElement.style;

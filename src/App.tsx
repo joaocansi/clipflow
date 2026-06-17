@@ -41,7 +41,7 @@ export default function App() {
 
   const { clips, saved, tools, reloadClips, reloadSaved, reloadTools } =
     useClipboardData();
-  const { themes, themeId, setThemeId } = useThemes();
+  const { themes, themeId, setThemeId, isLight } = useThemes();
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -232,7 +232,7 @@ export default function App() {
       className="flex h-screen w-screen items-center justify-center bg-transparent"
       onMouseDown={onScrimMouseDown}
     >
-      <div className="cf-panel cf-shadow flex h-[560px] w-[920px] overflow-hidden rounded-2xl border border-[var(--cf-border)] bg-[var(--cf-panel)] text-[var(--cf-text)] backdrop-blur">
+      <div className="cf-panel cf-shadow flex h-[560px] w-[920px] overflow-hidden rounded-2xl border border-[var(--cf-border)] bg-[var(--cf-panel)] text-[var(--cf-text)]">
         <Sidebar
           section={section}
           zone={zone}
@@ -299,6 +299,7 @@ export default function App() {
                 section={section}
                 sel={sel}
                 zone={zone}
+                light={isLight}
                 listRef={listRef}
                 onSelect={setSel}
                 onActivate={copyAndClose}
@@ -309,6 +310,7 @@ export default function App() {
                   section === "history" ? (
                     <HistoryDetail
                       clip={active as Clip}
+                      light={isLight}
                       onPinToggle={togglePin}
                       onDelete={() =>
                         api.deleteClip((active as Clip).id).then(() => reloadClips(query))
