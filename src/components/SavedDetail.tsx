@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { api, SavedItem } from "../api";
+import { detectType } from "../detect";
+import { parseColor, cssColor, toHex } from "../lib/color";
 import { Kbd } from "./Kbd";
 import { TagInput } from "./TagInput";
 
@@ -20,6 +22,8 @@ export function SavedDetail({
   const [name, setName] = useState(item.name);
   const [description, setDescription] = useState(item.description);
   const [tags, setTags] = useState(item.tags);
+  const ty = detectType(item.content);
+  const color = ty === "color" ? parseColor(item.content) : null;
   const dirty =
     name !== item.name || description !== item.description || tags !== item.tags;
 
@@ -51,9 +55,23 @@ export function SavedDetail({
         <span className={label}>Tags</span>
         <TagInput value={tags} onChange={setTags} placeholder="ex.: api, token, prod" />
       </label>
-      <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] px-2.5 py-1.5 text-[11px] text-[var(--cf-text-dim)]">
-        {item.content}
-      </pre>
+      {ty === "image" ? (
+        <div className="flex max-h-40 items-center justify-center overflow-auto rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] p-2">
+          <img src={item.content} alt="" className="max-h-36 max-w-full rounded object-contain" />
+        </div>
+      ) : color ? (
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] px-2.5 py-2">
+          <span
+            className="size-8 shrink-0 rounded border border-[var(--cf-border)]"
+            style={{ background: cssColor(color) }}
+          />
+          <span className="font-mono text-[11px] text-[var(--cf-text)]">{toHex(color)}</span>
+        </div>
+      ) : (
+        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] px-2.5 py-1.5 text-[11px] text-[var(--cf-text-dim)]">
+          {item.content}
+        </pre>
+      )}
       <div className="mt-auto flex items-center gap-2 pt-1">
         <button
           onClick={onTools}

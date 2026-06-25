@@ -43,11 +43,17 @@ pub fn toggle_pin(db: tauri::State<Arc<Db>>, id: i64) -> CmdResult<()> {
     e(db.toggle_pin(id))
 }
 
-/// Copy text to the clipboard (and persist it as the newest clip).
+/// Copy a clip back to the clipboard (and persist it as the newest clip).
+/// An image data URL is restored as a real image, not as text.
 #[tauri::command]
 pub fn copy_clip(db: tauri::State<Arc<Db>>, content: String) -> CmdResult<()> {
     e(clipboard::set_clipboard(&content))?;
-    let _ = db.insert(&content);
+    let kind = if content.starts_with("data:image/") {
+        "image"
+    } else {
+        "text"
+    };
+    let _ = db.insert(&content, kind);
     Ok(())
 }
 

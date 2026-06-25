@@ -1,6 +1,6 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A color theme. Stored as a TOML file in the themes directory; the field
 /// names map 1:1 to the `--cf-*` CSS variables the frontend applies. Values are
@@ -44,7 +44,7 @@ pub fn themes_dir() -> anyhow::Result<PathBuf> {
     Ok(dir)
 }
 
-fn write_example(dir: &PathBuf, file: &str, body: &str) -> anyhow::Result<()> {
+fn write_example(dir: &Path, file: &str, body: &str) -> anyhow::Result<()> {
     let path = dir.join(file);
     if !path.exists() {
         std::fs::write(path, body)?;
@@ -52,7 +52,7 @@ fn write_example(dir: &PathBuf, file: &str, body: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn seed_builtins(dir: &PathBuf) -> anyhow::Result<()> {
+fn seed_builtins(dir: &Path) -> anyhow::Result<()> {
     write_example(
         dir,
         "dark.toml",
@@ -139,6 +139,6 @@ pub fn list_themes() -> anyhow::Result<Vec<Theme>> {
             Err(e) => eprintln!("[clipflow] bad theme {:?}: {e}", path),
         }
     }
-    themes.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    themes.sort_by_key(|t| t.name.to_lowercase());
     Ok(themes)
 }

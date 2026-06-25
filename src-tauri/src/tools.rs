@@ -1,7 +1,7 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 /// A user-defined tool. Each tool lives in its own folder under the tools
@@ -58,7 +58,7 @@ pub fn tools_dir() -> anyhow::Result<PathBuf> {
 }
 
 /// True if at least one subfolder with a `manifest.toml` exists.
-fn has_folder_tool(dir: &PathBuf) -> bool {
+fn has_folder_tool(dir: &Path) -> bool {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return false;
     };
@@ -73,7 +73,7 @@ fn has_folder_tool(dir: &PathBuf) -> bool {
 
 /// Write a single example tool folder (manifest + an optional script file).
 fn write_example(
-    base: &PathBuf,
+    base: &Path,
     id: &str,
     manifest: &str,
     script: Option<(&str, &str)>,
@@ -90,7 +90,7 @@ fn write_example(
     Ok(())
 }
 
-fn seed_examples(dir: &PathBuf) -> anyhow::Result<()> {
+fn seed_examples(dir: &Path) -> anyhow::Result<()> {
     // Transformation tool: pretty-print JSON.
     write_example(
         dir,
@@ -183,7 +183,7 @@ pub fn list_tools() -> anyhow::Result<Vec<Tool>> {
             Err(e) => eprintln!("[clipflow] bad tool {:?}: {e}", manifest),
         }
     }
-    tools.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    tools.sort_by_key(|t| t.name.to_lowercase());
     Ok(tools)
 }
 

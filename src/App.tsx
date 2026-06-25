@@ -87,11 +87,16 @@ export default function App() {
     };
   }, [reloadClips, reloadSaved, reloadTools, focusSearch]);
 
-  // Reload the active list when the query or section changes.
+  // Reload the active list when the query or section changes. The reload is
+  // debounced so typing in the search box doesn't fire an IPC round-trip +
+  // SQLite query on every keystroke; selection resets immediately.
   useEffect(() => {
-    if (section === "history") reloadClips(query);
-    else if (section === "saved") reloadSaved(query);
     setSel(0);
+    const id = window.setTimeout(() => {
+      if (section === "history") reloadClips(query);
+      else if (section === "saved") reloadSaved(query);
+    }, 120);
+    return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, section]);
 

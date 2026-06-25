@@ -5,6 +5,8 @@ export interface Clip {
   content: string;
   created_at: number;
   pinned: boolean;
+  /** "text" or "image" (image content is a `data:image/…;base64,` URL). */
+  kind: string;
 }
 
 export interface SavedItem {

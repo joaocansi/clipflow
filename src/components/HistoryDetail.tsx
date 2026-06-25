@@ -1,5 +1,6 @@
 import { Clip } from "../api";
 import { detectType, typeBadge } from "../detect";
+import { ContentPreview } from "./ContentPreview";
 import { Kbd } from "./Kbd";
 
 /** Right-hand detail pane for a history clip. */
@@ -51,9 +52,7 @@ export function HistoryDetail({
           Excluir
         </button>
       </div>
-      <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all border-t border-[var(--cf-border)] bg-[var(--cf-surface)] px-3 py-2 text-xs text-[var(--cf-text)]">
-        {clip.content}
-      </pre>
+      <ContentPreview content={clip.content} />
     </>
   );
 }

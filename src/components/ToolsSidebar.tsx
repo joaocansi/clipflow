@@ -33,7 +33,7 @@ export function ToolsSidebar({
 }) {
   return (
     <aside className="cf-tools flex w-[280px] shrink-0 flex-col border-l border-[var(--cf-border)] bg-[var(--cf-surface)]">
-      <div className="flex items-center gap-2 border-b border-[var(--cf-border)] px-3 py-2 text-xs">
+      <div className="flex min-h-[49px] items-center gap-2 border-b border-[var(--cf-border)] px-3 py-2 text-xs">
         <span className="font-medium text-[var(--cf-text)]">
           {result ? resultTool?.name : "Tools"}
         </span>

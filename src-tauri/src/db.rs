@@ -10,6 +10,9 @@ pub struct Clip {
     pub content: String,
     pub created_at: i64,
     pub pinned: bool,
+    /// "text" or "image". Image clips store a `data:image/png;base64,…` URL
+    /// in `content`; everything else is plain text.
+    pub kind: String,
 }
 
 /// A user-saved item: a clip promoted with a name, description and tags.
@@ -44,7 +47,8 @@ impl Db {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
-                pinned INTEGER NOT NULL DEFAULT 0
+                pinned INTEGER NOT NULL DEFAULT 0,
+                kind TEXT NOT NULL DEFAULT 'text'
             );
             CREATE INDEX IF NOT EXISTS idx_clips_created ON clips(created_at DESC);
 
@@ -63,6 +67,13 @@ impl Db {
                 value TEXT NOT NULL
             );",
         )?;
+        // Migration for databases created before the `kind` column existed.
+        // CREATE TABLE IF NOT EXISTS leaves old tables untouched, so add it
+        // here and ignore the error when the column is already present.
+        let _ = conn.execute(
+            "ALTER TABLE clips ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'",
+            [],
+        );
         Ok(Db(Mutex::new(conn)))
     }
 
@@ -99,9 +110,10 @@ impl Db {
         .unwrap_or(DEFAULT_HISTORY_LIMIT)
     }
 
-    /// Insert a clip, skipping if it is identical to the most recent one.
-    /// Returns the row id if inserted, None if it was a duplicate.
-    pub fn insert(&self, content: &str) -> anyhow::Result<Option<i64>> {
+    /// Insert a clip of the given kind ("text" or "image"), skipping if it is
+    /// identical to the most recent one. Returns the row id if inserted, None
+    /// if it was a duplicate.
+    pub fn insert(&self, content: &str, kind: &str) -> anyhow::Result<Option<i64>> {
         if content.trim().is_empty() {
             return Ok(None);
         }
@@ -117,8 +129,8 @@ impl Db {
             return Ok(None);
         }
         conn.execute(
-            "INSERT INTO clips (content, created_at, pinned) VALUES (?1, ?2, 0)",
-            rusqlite::params![content, now()],
+            "INSERT INTO clips (content, created_at, pinned, kind) VALUES (?1, ?2, 0, ?3)",
+            rusqlite::params![content, now(), kind],
         )?;
         let id = conn.last_insert_rowid();
         // Trim unpinned history beyond the configured limit (newest kept).
@@ -133,20 +145,23 @@ impl Db {
         Ok(Some(id))
     }
 
+    fn map_clip(r: &rusqlite::Row) -> rusqlite::Result<Clip> {
+        Ok(Clip {
+            id: r.get(0)?,
+            content: r.get(1)?,
+            created_at: r.get(2)?,
+            pinned: r.get::<_, i64>(3)? != 0,
+            kind: r.get(4)?,
+        })
+    }
+
     pub fn list(&self, limit: i64) -> anyhow::Result<Vec<Clip>> {
         let conn = self.0.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, content, created_at, pinned FROM clips
+            "SELECT id, content, created_at, pinned, kind FROM clips
              ORDER BY pinned DESC, created_at DESC, id DESC LIMIT ?1",
         )?;
-        let rows = stmt.query_map([limit], |r| {
-            Ok(Clip {
-                id: r.get(0)?,
-                content: r.get(1)?,
-                created_at: r.get(2)?,
-                pinned: r.get::<_, i64>(3)? != 0,
-            })
-        })?;
+        let rows = stmt.query_map([limit], Self::map_clip)?;
         Ok(rows.filter_map(Result::ok).collect())
     }
 
@@ -154,18 +169,11 @@ impl Db {
         let conn = self.0.lock().unwrap();
         let like = format!("%{}%", query);
         let mut stmt = conn.prepare(
-            "SELECT id, content, created_at, pinned FROM clips
+            "SELECT id, content, created_at, pinned, kind FROM clips
              WHERE content LIKE ?1
              ORDER BY pinned DESC, created_at DESC, id DESC LIMIT ?2",
         )?;
-        let rows = stmt.query_map(rusqlite::params![like, limit], |r| {
-            Ok(Clip {
-                id: r.get(0)?,
-                content: r.get(1)?,
-                created_at: r.get(2)?,
-                pinned: r.get::<_, i64>(3)? != 0,
-            })
-        })?;
+        let rows = stmt.query_map(rusqlite::params![like, limit], Self::map_clip)?;
         Ok(rows.filter_map(Result::ok).collect())
     }
 
