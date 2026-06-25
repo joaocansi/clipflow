@@ -37,9 +37,6 @@ export default function App() {
   const [resultTool, setResultTool] = useState<Tool | null>(null);
   const [editing, setEditing] = useState<Tool | null>(null);
 
-  // Replays the entrance animation on every open.
-  const [openCount, setOpenCount] = useState(0);
-
   const { clips, saved, tools, folders, reloadClips, reloadSaved, reloadTools, reloadFolders } =
     useClipboardData();
   const { themes, themeId, setThemeId, isLight } = useThemes();
@@ -51,9 +48,22 @@ export default function App() {
   const listRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const shownAtRef = useRef(0);
   const sectionRef = useRef<Section>(section);
   sectionRef.current = section;
+
+  // Replay the panel's CSS entrance animation without remounting the tree:
+  // clear the animation, force a reflow, then let the .cf-panel rule re-apply.
+  // Keeps the CSS as the single source of truth (so prefers-reduced-motion
+  // still wins) while avoiding a full unmount/remount of every child.
+  const replayEntrance = useCallback(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+  }, []);
 
   const focusSearch = useCallback(() => {
     let tries = 0;
@@ -73,7 +83,7 @@ export default function App() {
     });
     const un2 = listen("window-shown", () => {
       shownAtRef.current = Date.now();
-      setOpenCount((n) => n + 1);
+      replayEntrance();
       setSection("history");
       setQuery("");
       setOverlay(null);
@@ -91,7 +101,7 @@ export default function App() {
       un1.then((f) => f());
       un2.then((f) => f());
     };
-  }, [reloadClips, reloadSaved, reloadTools, reloadFolders, focusSearch]);
+  }, [reloadClips, reloadSaved, reloadTools, reloadFolders, focusSearch, replayEntrance]);
 
   // Reload the active list when the query or section changes. The reload is
   // debounced so typing in the search box doesn't fire an IPC round-trip +
@@ -280,11 +290,13 @@ export default function App() {
 
   return (
     <div
-      key={openCount}
       className="flex h-screen w-screen items-center justify-center bg-transparent"
       onMouseDown={onScrimMouseDown}
     >
-      <div className="cf-panel cf-shadow flex h-[560px] w-[920px] overflow-hidden rounded-2xl border border-[var(--cf-border)] bg-[var(--cf-panel)] text-[var(--cf-text)]">
+      <div
+        ref={panelRef}
+        className="cf-panel cf-shadow flex h-[560px] w-[920px] overflow-hidden rounded-2xl border border-[var(--cf-border)] bg-[var(--cf-panel)] text-[var(--cf-text)]"
+      >
         <Sidebar
           section={section}
           zone={zone}
