@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, Folder, SavedItem } from "../api";
 import { detectType } from "../detect";
 import { parseColor, cssColor, toHex } from "../lib/color";
+import { FolderSelect } from "./FolderSelect";
 import { Kbd } from "./Kbd";
 import { TagInput } from "./TagInput";
 
@@ -59,21 +60,10 @@ export function SavedDetail({
         <span className={label}>Tags</span>
         <TagInput value={tags} onChange={setTags} placeholder="ex.: api, token, prod" />
       </label>
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className={label}>Pasta</span>
-        <select
-          value={item.folder_id ?? ""}
-          onChange={(e) => onMove(e.target.value ? Number(e.target.value) : null)}
-          className={field}
-        >
-          <option value="">Sem pasta</option>
-          {folders.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        <FolderSelect folders={folders} value={item.folder_id} onChange={onMove} />
+      </div>
       {ty === "image" ? (
         <div className="flex max-h-40 items-center justify-center overflow-auto rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] p-2">
           <img src={item.content} alt="" className="max-h-36 max-w-full rounded object-contain" />

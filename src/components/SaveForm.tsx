@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, Folder } from "../api";
+import { FolderSelect } from "./FolderSelect";
 import { TagInput } from "./TagInput";
 
 /** Overlay form for saving a clip as a named/tagged saved item. */
@@ -66,21 +67,10 @@ export function SaveForm({
         <span className={label}>Tags</span>
         <TagInput value={tags} onChange={setTags} placeholder="ex.: api, token, prod" />
       </label>
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className={label}>Pasta</span>
-        <select
-          value={folderId ?? ""}
-          onChange={(e) => setFolderId(e.target.value ? Number(e.target.value) : null)}
-          className={field}
-        >
-          <option value="">Sem pasta</option>
-          {folders.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        <FolderSelect folders={folders} value={folderId} onChange={setFolderId} />
+      </div>
       <div className="flex flex-col gap-1">
         <span className={label}>Conteúdo</span>
         <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] px-2.5 py-1.5 text-xs text-[var(--cf-text-dim)]">
