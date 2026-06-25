@@ -1,10 +1,9 @@
 name: CI
 
-# Valida que o projeto compila a cada push na main e em pull requests.
-# Não gera artefatos nem release — apenas garante que o build não quebrou.
+# Valida que o projeto compila em todo Pull Request voltado para a main — é o
+# portão de qualidade ANTES do merge. Não gera artefatos nem release; o release
+# acontece no workflow Release, disparado quando o PR é mergeado.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 

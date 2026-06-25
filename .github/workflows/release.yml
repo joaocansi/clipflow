@@ -1,12 +1,13 @@
 name: Release
 
-# Publica uma nova versão sempre que uma tag "v*" for enviada para o repositório.
-# Ex.: git tag v1.0.0 && git push origin v1.0.0
-# Também pode ser disparado manualmente pela aba Actions (workflow_dispatch).
+# Publica uma nova versão automaticamente quando um Pull Request é MERGEADO na
+# branch main. A versão vem do package.json (bumpe-a no PR); se a tag dessa
+# versão já existir, o release é pulado — então só sai release quando a versão
+# muda. Também pode ser disparado manualmente pela aba Actions.
 on:
-  push:
-    tags:
-      - "v*"
+  pull_request:
+    types: [closed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -17,36 +18,64 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  # Decide se há algo a publicar: resolve a versão e verifica se a tag já existe.
+  prepare:
+    # No evento de PR, só prossegue se o PR foi de fato mergeado (não apenas fechado).
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      should_release: ${{ steps.check.outputs.should_release }}
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
-      # Descobre a versão: usa a tag (sem o 'v') ou o input do dispatch manual.
       - name: Resolve version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            VERSION="${GITHUB_REF_NAME#v}"
+            VERSION="$(jq -r .version package.json)"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Publicando versão $VERSION"
+          echo "Versão resolvida: $VERSION"
 
-      # Mantém package.json, tauri.conf.json e Cargo.toml em sincronia com a tag,
-      # para que os binários (.deb/.rpm/.AppImage) carreguem o número de versão correto.
+      - name: Skip if this version was already released
+        id: check
+        run: |
+          git fetch --tags --quiet
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tag v${{ steps.version.outputs.version }} já existe — nada a publicar (bumpe a versão no package.json para liberar um release)."
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Builda e publica a release (com a tag) apenas quando há uma versão nova.
+  release:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # Garante que tauri.conf.json e Cargo.toml batem com a versão do package.json,
+      # para os binários (.deb/.rpm/.AppImage) saírem com o número correto.
       - name: Sync version files
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          # package.json
+          VERSION="${{ needs.prepare.outputs.version }}"
           npm pkg set version="$VERSION"
-          # tauri.conf.json
           tmp=$(mktemp)
           jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > "$tmp" && mv "$tmp" src-tauri/tauri.conf.json
-          # Cargo.toml (primeira ocorrência de version = "..." na seção [package])
           sed -i "0,/^version = \".*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
           echo "package.json -> $(jq -r .version package.json)"
           echo "tauri.conf.json -> $(jq -r .version src-tauri/tauri.conf.json)"
@@ -90,15 +119,15 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      # Builda o frontend + a app Tauri, gera .deb/.rpm/.AppImage e cria/atualiza
-      # a GitHub Release com todos os artefatos anexados.
+      # Builda o frontend + a app Tauri, CRIA a tag, gera .deb/.rpm/.AppImage e
+      # publica a GitHub Release com todos os artefatos anexados.
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.version.outputs.tag }}
-          releaseName: "ClipFlow ${{ steps.version.outputs.tag }}"
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseName: "ClipFlow ${{ needs.prepare.outputs.tag }}"
           releaseBody: "Veja os arquivos abaixo para baixar o instalador da sua plataforma (.deb, .rpm ou .AppImage)."
           releaseDraft: false
           prerelease: false
