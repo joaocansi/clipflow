@@ -25,6 +25,16 @@ pub struct SavedItem {
     /// Comma-separated tags (UI splits/joins on commas).
     pub tags: String,
     pub created_at: i64,
+    /// Folder this item belongs to, or None when unfiled.
+    pub folder_id: Option<i64>,
+}
+
+/// A named collection that groups saved items (e.g. "Dados Pessoais").
+#[derive(Debug, Serialize, Clone)]
+pub struct Folder {
+    pub id: i64,
+    pub name: String,
+    pub created_at: i64,
 }
 
 const DEFAULT_HISTORY_LIMIT: i64 = 200;
@@ -65,15 +75,22 @@ impl Db {
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                created_at INTEGER NOT NULL
             );",
         )?;
-        // Migration for databases created before the `kind` column existed.
-        // CREATE TABLE IF NOT EXISTS leaves old tables untouched, so add it
-        // here and ignore the error when the column is already present.
+        // Migrations for databases created before these columns existed.
+        // CREATE TABLE IF NOT EXISTS leaves old tables untouched, so add the
+        // columns here and ignore the error when they are already present.
         let _ = conn.execute(
             "ALTER TABLE clips ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'",
             [],
         );
+        let _ = conn.execute("ALTER TABLE saved_items ADD COLUMN folder_id INTEGER", []);
         Ok(Db(Mutex::new(conn)))
     }
 
@@ -205,6 +222,7 @@ impl Db {
             description: r.get(3)?,
             tags: r.get(4)?,
             created_at: r.get(5)?,
+            folder_id: r.get(6)?,
         })
     }
 
@@ -214,12 +232,13 @@ impl Db {
         name: &str,
         description: &str,
         tags: &str,
+        folder_id: Option<i64>,
     ) -> anyhow::Result<i64> {
         let conn = self.0.lock().unwrap();
         conn.execute(
-            "INSERT INTO saved_items (content, name, description, tags, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![content, name, description, tags, now()],
+            "INSERT INTO saved_items (content, name, description, tags, created_at, folder_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![content, name, description, tags, now(), folder_id],
         )?;
         Ok(conn.last_insert_rowid())
     }
@@ -248,7 +267,7 @@ impl Db {
     pub fn list_saved(&self, limit: i64) -> anyhow::Result<Vec<SavedItem>> {
         let conn = self.0.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, content, name, description, tags, created_at FROM saved_items
+            "SELECT id, content, name, description, tags, created_at, folder_id FROM saved_items
              ORDER BY created_at DESC, id DESC LIMIT ?1",
         )?;
         let rows = stmt.query_map([limit], Self::map_saved)?;
@@ -259,11 +278,64 @@ impl Db {
         let conn = self.0.lock().unwrap();
         let like = format!("%{}%", query);
         let mut stmt = conn.prepare(
-            "SELECT id, content, name, description, tags, created_at FROM saved_items
+            "SELECT id, content, name, description, tags, created_at, folder_id FROM saved_items
              WHERE name LIKE ?1 OR description LIKE ?1 OR tags LIKE ?1 OR content LIKE ?1
              ORDER BY created_at DESC, id DESC LIMIT ?2",
         )?;
         let rows = stmt.query_map(rusqlite::params![like, limit], Self::map_saved)?;
         Ok(rows.filter_map(Result::ok).collect())
+    }
+
+    /// Move a saved item into a folder (or out of any folder when None).
+    pub fn set_saved_folder(&self, id: i64, folder_id: Option<i64>) -> anyhow::Result<()> {
+        let conn = self.0.lock().unwrap();
+        conn.execute(
+            "UPDATE saved_items SET folder_id = ?2 WHERE id = ?1",
+            rusqlite::params![id, folder_id],
+        )?;
+        Ok(())
+    }
+
+    // ---- folders ----
+
+    pub fn list_folders(&self) -> anyhow::Result<Vec<Folder>> {
+        let conn = self.0.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, created_at FROM folders ORDER BY name COLLATE NOCASE ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(Folder {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+            })
+        })?;
+        Ok(rows.filter_map(Result::ok).collect())
+    }
+
+    pub fn create_folder(&self, name: &str) -> anyhow::Result<i64> {
+        let conn = self.0.lock().unwrap();
+        conn.execute(
+            "INSERT INTO folders (name, created_at) VALUES (?1, ?2)",
+            rusqlite::params![name, now()],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn rename_folder(&self, id: i64, name: &str) -> anyhow::Result<()> {
+        let conn = self.0.lock().unwrap();
+        conn.execute(
+            "UPDATE folders SET name = ?2 WHERE id = ?1",
+            rusqlite::params![id, name],
+        )?;
+        Ok(())
+    }
+
+    /// Delete a folder. Its items are kept but become unfiled (folder_id NULL).
+    pub fn delete_folder(&self, id: i64) -> anyhow::Result<()> {
+        let conn = self.0.lock().unwrap();
+        conn.execute("UPDATE saved_items SET folder_id = NULL WHERE folder_id = ?1", [id])?;
+        conn.execute("DELETE FROM folders WHERE id = ?1", [id])?;
+        Ok(())
     }
 }

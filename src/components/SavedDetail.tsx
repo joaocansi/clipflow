@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, SavedItem } from "../api";
+import { api, Folder, SavedItem } from "../api";
 import { detectType } from "../detect";
 import { parseColor, cssColor, toHex } from "../lib/color";
 import { Kbd } from "./Kbd";
@@ -8,12 +8,16 @@ import { TagInput } from "./TagInput";
 /** Right-hand detail pane for a saved item (editable name/description/tags). */
 export function SavedDetail({
   item,
+  folders,
+  onMove,
   onUpdated,
   onDelete,
   onTools,
   toolsEnabled,
 }: {
   item: SavedItem;
+  folders: Folder[];
+  onMove: (folderId: number | null) => void;
   onUpdated: () => void;
   onDelete: () => void;
   onTools: () => void;
@@ -54,6 +58,21 @@ export function SavedDetail({
       <label className="flex flex-col gap-1">
         <span className={label}>Tags</span>
         <TagInput value={tags} onChange={setTags} placeholder="ex.: api, token, prod" />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className={label}>Pasta</span>
+        <select
+          value={item.folder_id ?? ""}
+          onChange={(e) => onMove(e.target.value ? Number(e.target.value) : null)}
+          className={field}
+        >
+          <option value="">Sem pasta</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
       </label>
       {ty === "image" ? (
         <div className="flex max-h-40 items-center justify-center overflow-auto rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] p-2">

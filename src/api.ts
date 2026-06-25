@@ -17,6 +17,15 @@ export interface SavedItem {
   /** Comma-separated tags. */
   tags: string;
   created_at: number;
+  /** Folder this item belongs to, or null when unfiled. */
+  folder_id: number | null;
+}
+
+/** A named collection that groups saved items. */
+export interface Folder {
+  id: number;
+  name: string;
+  created_at: number;
 }
 
 export interface Tool {
@@ -70,11 +79,24 @@ export const api = {
   listSaved: (limit?: number) => invoke<SavedItem[]>("list_saved", { limit }),
   searchSaved: (query: string, limit?: number) =>
     invoke<SavedItem[]>("search_saved", { query, limit }),
-  saveItem: (content: string, name: string, description: string, tags: string) =>
-    invoke<number>("save_item", { content, name, description, tags }),
+  saveItem: (
+    content: string,
+    name: string,
+    description: string,
+    tags: string,
+    folderId: number | null
+  ) => invoke<number>("save_item", { content, name, description, tags, folderId }),
   updateSaved: (id: number, name: string, description: string, tags: string) =>
     invoke<void>("update_saved", { id, name, description, tags }),
   deleteSaved: (id: number) => invoke<void>("delete_saved", { id }),
+  setSavedFolder: (id: number, folderId: number | null) =>
+    invoke<void>("set_saved_folder", { id, folderId }),
+
+  listFolders: () => invoke<Folder[]>("list_folders"),
+  createFolder: (name: string) => invoke<number>("create_folder", { name }),
+  renameFolder: (id: number, name: string) =>
+    invoke<void>("rename_folder", { id, name }),
+  deleteFolder: (id: number) => invoke<void>("delete_folder", { id }),
 
   getSetting: (key: string) => invoke<string | null>("get_setting", { key }),
   setSetting: (key: string, value: string) =>

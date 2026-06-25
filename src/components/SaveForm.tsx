@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, Folder } from "../api";
 import { TagInput } from "./TagInput";
 
 /** Overlay form for saving a clip as a named/tagged saved item. */
 export function SaveForm({
   content,
+  folders,
+  defaultFolderId,
   onCancel,
   onSaved,
 }: {
   content: string;
+  folders: Folder[];
+  defaultFolderId: number | null;
   onCancel: () => void;
-  onSaved: () => void;
+  /** Receives the folder the item was filed into (null when unfiled). */
+  onSaved: (folderId: number | null) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
+  const [folderId, setFolderId] = useState<number | null>(defaultFolderId);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -22,8 +28,8 @@ export function SaveForm({
   }, []);
 
   async function save() {
-    await api.saveItem(content, name.trim(), description.trim(), tags.trim());
-    onSaved();
+    await api.saveItem(content, name.trim(), description.trim(), tags.trim(), folderId);
+    onSaved(folderId);
   }
 
   const field =
@@ -59,6 +65,21 @@ export function SaveForm({
       <label className="flex flex-col gap-1">
         <span className={label}>Tags</span>
         <TagInput value={tags} onChange={setTags} placeholder="ex.: api, token, prod" />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className={label}>Pasta</span>
+        <select
+          value={folderId ?? ""}
+          onChange={(e) => setFolderId(e.target.value ? Number(e.target.value) : null)}
+          className={field}
+        >
+          <option value="">Sem pasta</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="flex flex-col gap-1">
         <span className={label}>Conteúdo</span>

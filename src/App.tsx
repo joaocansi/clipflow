@@ -11,6 +11,7 @@ import { useGlobalKeydown } from "./hooks/useGlobalKeydown";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { Sidebar } from "./components/Sidebar";
 import { SearchBar } from "./components/SearchBar";
+import { FolderBar, FolderFilter } from "./components/FolderBar";
 import { ClipList } from "./components/ClipList";
 import { HistoryDetail } from "./components/HistoryDetail";
 import { SavedDetail } from "./components/SavedDetail";
@@ -39,9 +40,12 @@ export default function App() {
   // Replays the entrance animation on every open.
   const [openCount, setOpenCount] = useState(0);
 
-  const { clips, saved, tools, reloadClips, reloadSaved, reloadTools } =
+  const { clips, saved, tools, folders, reloadClips, reloadSaved, reloadTools, reloadFolders } =
     useClipboardData();
   const { themes, themeId, setThemeId, isLight } = useThemes();
+
+  // Active folder filter for the Saved section.
+  const [folderFilter, setFolderFilter] = useState<FolderFilter>("all");
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -76,16 +80,18 @@ export default function App() {
       setToolsOpen(false);
       setZone("list");
       setSel(0);
+      setFolderFilter("all");
       reloadClips("");
       reloadSaved("");
       reloadTools();
+      reloadFolders();
       focusSearch();
     });
     return () => {
       un1.then((f) => f());
       un2.then((f) => f());
     };
-  }, [reloadClips, reloadSaved, reloadTools, focusSearch]);
+  }, [reloadClips, reloadSaved, reloadTools, reloadFolders, focusSearch]);
 
   // Reload the active list when the query or section changes. The reload is
   // debounced so typing in the search box doesn't fire an IPC round-trip +
@@ -100,8 +106,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, section]);
 
+  // Saved items narrowed to the active folder filter, plus per-folder counts.
+  const visibleSaved = useMemo(() => {
+    if (folderFilter === "all") return saved;
+    if (folderFilter === "none") return saved.filter((s) => s.folder_id == null);
+    return saved.filter((s) => s.folder_id === folderFilter);
+  }, [saved, folderFilter]);
+
+  const folderCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const s of saved) {
+      const key = s.folder_id == null ? "none" : String(s.folder_id);
+      c[key] = (c[key] ?? 0) + 1;
+    }
+    return c;
+  }, [saved]);
+
   const items: (Clip | SavedItem)[] =
-    section === "history" ? clips : section === "saved" ? saved : [];
+    section === "history" ? clips : section === "saved" ? visibleSaved : [];
   const active = items[sel];
   const activeContent = active?.content;
   const toolsEnabled = !!activeContent;
@@ -155,6 +177,31 @@ export default function App() {
       api.togglePin((active as Clip).id).then(() => reloadClips(query));
     }
   }, [section, active, reloadClips, query]);
+
+  const selectFolder = useCallback((f: FolderFilter) => {
+    setFolderFilter(f);
+    setSel(0);
+  }, []);
+
+  const createFolder = useCallback(
+    async (name: string) => {
+      const id = await api.createFolder(name);
+      await reloadFolders();
+      setFolderFilter(id);
+      setSel(0);
+    },
+    [reloadFolders]
+  );
+
+  const deleteFolder = useCallback(
+    async (id: number) => {
+      await api.deleteFolder(id);
+      await Promise.all([reloadFolders(), reloadSaved(query)]);
+      setFolderFilter("all");
+      setSel(0);
+    },
+    [reloadFolders, reloadSaved, query]
+  );
 
   const goSection = useCallback((id: Section) => {
     setSection(id);
@@ -276,15 +323,19 @@ export default function App() {
           ) : overlay === "save" && activeContent ? (
             <SaveForm
               content={activeContent}
+              folders={folders}
+              defaultFolderId={typeof folderFilter === "number" ? folderFilter : null}
               onCancel={() => {
                 setOverlay(null);
                 focusSearch();
               }}
-              onSaved={async () => {
+              onSaved={async (folderId) => {
                 await reloadSaved("");
                 setOverlay(null);
                 setSection("saved");
                 setQuery("");
+                setFolderFilter(folderId ?? "all");
+                setSel(0);
                 focusSearch();
               }}
             />
@@ -298,17 +349,28 @@ export default function App() {
               onExit={() => setZone("nav")}
             />
           ) : (
-            <div className="flex min-h-0 flex-1">
-              <ClipList
-                items={items}
-                section={section}
-                sel={sel}
-                zone={zone}
-                light={isLight}
-                listRef={listRef}
-                onSelect={setSel}
-                onActivate={copyAndClose}
-              />
+            <div className="flex min-h-0 flex-1 flex-col">
+              {section === "saved" && (
+                <FolderBar
+                  folders={folders}
+                  selected={folderFilter}
+                  counts={folderCounts}
+                  onSelect={selectFolder}
+                  onCreate={createFolder}
+                  onDelete={deleteFolder}
+                />
+              )}
+              <div className="flex min-h-0 flex-1">
+                <ClipList
+                  items={items}
+                  section={section}
+                  sel={sel}
+                  zone={zone}
+                  light={isLight}
+                  listRef={listRef}
+                  onSelect={setSel}
+                  onActivate={copyAndClose}
+                />
 
               <div className="flex w-1/2 flex-col">
                 {active ? (
@@ -328,6 +390,11 @@ export default function App() {
                     <SavedDetail
                       key={(active as SavedItem).id}
                       item={active as SavedItem}
+                      folders={folders}
+                      onMove={async (fid) => {
+                        await api.setSavedFolder((active as SavedItem).id, fid);
+                        await reloadSaved(query);
+                      }}
                       onUpdated={() => reloadSaved(query)}
                       onDelete={() =>
                         api.deleteSaved((active as SavedItem).id).then(() => reloadSaved(query))
@@ -339,6 +406,7 @@ export default function App() {
                 ) : (
                   <p className="p-4 text-sm text-[var(--cf-text-dim)]">Selecione um item.</p>
                 )}
+                </div>
               </div>
             </div>
           )}

@@ -83,8 +83,40 @@ pub fn save_item(
     name: String,
     description: String,
     tags: String,
+    folder_id: Option<i64>,
 ) -> CmdResult<i64> {
-    e(db.save_item(&content, &name, &description, &tags))
+    e(db.save_item(&content, &name, &description, &tags, folder_id))
+}
+
+#[tauri::command]
+pub fn set_saved_folder(
+    db: tauri::State<Arc<Db>>,
+    id: i64,
+    folder_id: Option<i64>,
+) -> CmdResult<()> {
+    e(db.set_saved_folder(id, folder_id))
+}
+
+// ---- folders ----
+
+#[tauri::command]
+pub fn list_folders(db: tauri::State<Arc<Db>>) -> CmdResult<Vec<db::Folder>> {
+    e(db.list_folders())
+}
+
+#[tauri::command]
+pub fn create_folder(db: tauri::State<Arc<Db>>, name: String) -> CmdResult<i64> {
+    e(db.create_folder(name.trim()))
+}
+
+#[tauri::command]
+pub fn rename_folder(db: tauri::State<Arc<Db>>, id: i64, name: String) -> CmdResult<()> {
+    e(db.rename_folder(id, name.trim()))
+}
+
+#[tauri::command]
+pub fn delete_folder(db: tauri::State<Arc<Db>>, id: i64) -> CmdResult<()> {
+    e(db.delete_folder(id))
 }
 
 #[tauri::command]

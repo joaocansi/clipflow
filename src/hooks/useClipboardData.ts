@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, Clip, SavedItem, Tool } from "../api";
+import { api, Clip, Folder, SavedItem, Tool } from "../api";
 
 /**
  * Owns the three data collections (history clips, saved items, tools) and the
@@ -10,6 +10,7 @@ export function useClipboardData() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [saved, setSaved] = useState<SavedItem[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
 
   const reloadClips = useCallback(async (q: string) => {
     const list = q.trim() ? await api.searchClips(q) : await api.listClips();
@@ -25,11 +26,25 @@ export function useClipboardData() {
     setTools(await api.listTools());
   }, []);
 
+  const reloadFolders = useCallback(async () => {
+    setFolders(await api.listFolders());
+  }, []);
+
   useEffect(() => {
     reloadClips("");
     reloadSaved("");
     reloadTools();
-  }, [reloadClips, reloadSaved, reloadTools]);
+    reloadFolders();
+  }, [reloadClips, reloadSaved, reloadTools, reloadFolders]);
 
-  return { clips, saved, tools, reloadClips, reloadSaved, reloadTools };
+  return {
+    clips,
+    saved,
+    tools,
+    folders,
+    reloadClips,
+    reloadSaved,
+    reloadTools,
+    reloadFolders,
+  };
 }
